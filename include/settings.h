@@ -15,18 +15,18 @@ struct Settings {
     bool isDirectory;
 
     bool removeInvalid;
-    double invalidSpeed_km_h = 100.0;
+    double invalidSpeed_km_h;
 
     bool interpolateHeight;
-    double climbMaxSpeed_m_s = 15.0;
-    double climbTrendAdapt = 0.25;
+    double climbMaxSpeed_m_s;
+    double climbTrendAdapt;
 
     bool extractPause;
-    double pauseMinTime_s = 30.0;
-    double pauseMaxRange_m = 10.0;
+    double pauseMinTime_s;
+    double pauseMaxRange_m;
 
     bool splitUpDown;
-    double raiseDistance = 100.0;
+    double raiseDistance_m;
 
 
 
