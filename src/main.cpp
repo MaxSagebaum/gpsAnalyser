@@ -59,20 +59,24 @@ void readDocument(const std::string& file, rapidxml::xml_document<>& doc) {
   doc.parse<0>(text);
 }
 
-Statistics outputTracksStatistics(const std::string& name, const std::vector<Track>& tracks, std::ostream& out) {
+Statistics outputTracksStatistics(const std::string& name, const std::vector<Track>& tracks, std::ostream& out, const Settings& settings) {
   Statistics total;
   total.init();
 
   for(size_t pos = 0; pos < tracks.size(); pos += 1) {
     Statistics cur = tracks[pos].computeStatistics();
 
-    cur.printRow(out, name + ":" + formatInt((int)pos, 0));
+    if(settings.outputStatistics >= 3) {
+      cur.printRow(out, name + ":" + formatInt((int) pos, 0));
+    }
     total.add(cur);
   }
 
   total.finalize();
   if(tracks.size() > 1) {
-    total.printRow(out, name + ":total");
+    if(settings.outputStatistics >= 2) {
+      total.printRow(out, name + ":total");
+    }
   }
 
   return total;
@@ -82,17 +86,17 @@ void outputFileStatistics(const std::string& name, const std::vector<Track>& tra
               const std::vector<Track>& up, const std::vector<Track>& down, Statistics& total, Statistics& totalUp,
               Statistics& totalDown, Statistics& totalBreak, std::ostream& out, const Settings& settings) {
   if(settings.splitUpDown) {
-    Statistics combinedUp = outputTracksStatistics(name + ":up", up, out);
-    Statistics combinedDown = outputTracksStatistics(name + ":down", down, out);
+    Statistics combinedUp = outputTracksStatistics(name + ":up", up, out, settings);
+    Statistics combinedDown = outputTracksStatistics(name + ":down", down, out, settings);
 
     totalUp.add(combinedUp);
     totalDown.add(combinedDown);
   } else {
-    Statistics combined = outputTracksStatistics(name + ":normal", tracks, out);
+    Statistics combined = outputTracksStatistics(name + ":normal", tracks, out, settings);
     total.add(combined);
   }
   if(settings.extractPause) {
-    Statistics combinedBreak = outputTracksStatistics(name + ":break", breaks, out);
+    Statistics combinedBreak = outputTracksStatistics(name + ":break", breaks, out, settings);
     totalBreak.add(combinedBreak);
   }
 }
@@ -162,7 +166,7 @@ void analyzeFile(const std::string& inFile, const std::string& name, const std::
     }
   }
 
-  if(settings.outputStatistics) {
+  if(0 != settings.outputStatistics) {
     outputFileStatistics(name, tracks, breaks, up, down, total, totalUp, totalDown, totalBreak, out, settings);
   }
 
@@ -181,7 +185,7 @@ void performAnalysis(const Settings& settings) {
   breaks.init();
 
   std::ostream& out = std::cout;
-  if(settings.outputStatistics) {
+  if(0 != settings.outputStatistics) {
     total.printHeader(out);
   }
 
@@ -204,7 +208,7 @@ void performAnalysis(const Settings& settings) {
     analyzeFile(input, name, output, total, up, down, breaks, out, settings);
   }
 
-  if(settings.outputStatistics) {
+  if(settings.outputStatistics >= 1) {
     total.finalize();
     up.finalize();
     down.finalize();
@@ -231,10 +235,10 @@ int main(int nargs, const char* const* args) {
 
     TCLAP::SwitchArg removeInvalid("r", "remInvalid", "Remove invalid values.", cmd);
     TCLAP::SwitchArg interploateHeight("i", "intHeight", "Remove wrong height values and interpolate the gap.", cmd);
-    TCLAP::SwitchArg splitUpDown("s", "split", "Split tracks into up and down.", cmd);
+    TCLAP::SwitchArg splitUpDown("d", "divide", "Split tracks into up and down.", cmd);
     TCLAP::SwitchArg extractBreak("e", "extBreak", "Extract breaks from track.", cmd);
-    TCLAP::SwitchArg outputStatistics("", "statistics", "Compute statistics of each track and produce a grand total.", cmd);
 
+    TCLAP::ValueArg<int> outputStatistics("s", "statistics", "Compute statistics of each track and produce a grand total. Verbosity: 0=Off, 1=Grand Total, 2=File Total, 3=All", false, 0, "stat_level", cmd);
 
     TCLAP::ValueArg<double> invalidSpeed("", "invalidSpeed", "Maximum allowed speed for the track. Points with higher speed are removed. Unit: km/h", false, 100.0, "invalidSpeed", cmd);
     TCLAP::ValueArg<double> climbMaxSpeed("", "climbMaxSpeed", "Maximum allowed speed for the climbing or falling. Points with higher speed are interpolated according to the trend prior to the detected section. Unit: m/s", false, 15.0, "climbMaxSpeed", cmd);
@@ -255,7 +259,7 @@ int main(int nargs, const char* const* args) {
     settings.splitUpDown = splitUpDown.isSet();
     settings.interpolateHeight = interploateHeight.isSet();
     settings.removeInvalid = removeInvalid.isSet();
-    settings.outputStatistics = outputStatistics.isSet();
+    settings.outputStatistics = outputStatistics.getValue();
 
     settings.invalidSpeed_km_h = invalidSpeed.getValue();
     settings.climbMaxSpeed_m_s = climbMaxSpeed.getValue();

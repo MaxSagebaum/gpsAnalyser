@@ -28,7 +28,7 @@ struct Settings {
     bool splitUpDown;
     double raiseDistance_m;
 
-    bool outputStatistics;
+    int outputStatistics;
 
     static int verbose;
 };
