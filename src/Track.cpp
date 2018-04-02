@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cmath>
 #include <settings.h>
+#include <Statistics.h>
 #include "../include/Track.h"
 
 void Track::read(rapidxml::xml_node<>* trackSeg) {
@@ -248,6 +249,25 @@ void Track::splitUpDown(double changeTolerance, std::vector<Track>& up, std::vec
     // minimum has a bigger fall
     extractTrack(down, sectionStart, points.size());
   }
+}
+
+Statistics Track::computeStatistics() const {
+  Statistics s;
+  s.init();
+
+  for(size_t pos = 1; pos < points.size(); pos += 1) {
+    const DataPoint& prevPoint = points[pos - 1];
+    const DataPoint& curPoint = points[pos];
+
+    long time = curPoint.time - prevPoint.time;
+    double height = curPoint.height - prevPoint.height;
+    double distancePlain = computePlainDist(curPoint, prevPoint);
+    s.update(time, distancePlain, height);
+  }
+
+  s.finalize();
+
+  return s;
 }
 
 void Track::extractTrack(std::vector<Track>& tracks, size_t start, size_t end) const {

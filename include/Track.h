@@ -9,6 +9,8 @@
 #include <vector>
 #include <rapidxml.hpp>
 
+#include "Statistics.h"
+
 struct DataPoint {
     double lat;
     double lon;
@@ -45,6 +47,8 @@ public:
     void write(rapidxml::xml_node<>* trackSeg, rapidxml::xml_document<>& doc) const;
 
     void linearizeWrongHeight(const double maxClimbSpeed_m_s, const double trendAdapt);
+
+    Statistics computeStatistics() const;
 };
 
 

@@ -14,6 +14,7 @@
 #include <settings.h>
 
 #include <tclap/CmdLine.h>
+#include <Statistics.h>
 
 
 void addAllTracks(rapidxml::xml_node<>* base, const std::string& name, const std::vector<Track>& tracks, rapidxml::xml_document<>& doc) {
@@ -58,6 +59,45 @@ void readDocument(const std::string& file, rapidxml::xml_document<>& doc) {
   doc.parse<0>(text);
 }
 
+Statistics outputTracksStatistics(const std::string& name, const std::vector<Track>& tracks, std::ostream& out) {
+  Statistics total;
+  total.init();
+
+  for(size_t pos = 0; pos < tracks.size(); pos += 1) {
+    Statistics cur = tracks[pos].computeStatistics();
+
+    cur.printRow(out, name + ":" + formatInt((int)pos, 0));
+    total.add(cur);
+  }
+
+  total.finalize();
+  if(tracks.size() > 1) {
+    total.printRow(out, name + ":total");
+  }
+
+  return total;
+}
+
+void outputFileStatistics(const std::string& name, const std::vector<Track>& tracks, const std::vector<Track>& breaks,
+              const std::vector<Track>& up, const std::vector<Track>& down, Statistics& total, Statistics& totalUp,
+              Statistics& totalDown, Statistics& totalBreak, std::ostream& out, const Settings& settings) {
+  if(settings.splitUpDown) {
+    Statistics combinedUp = outputTracksStatistics(name + ":up", up, out);
+    Statistics combinedDown = outputTracksStatistics(name + ":down", down, out);
+
+    totalUp.add(combinedUp);
+    totalDown.add(combinedDown);
+  } else {
+    Statistics combined = outputTracksStatistics(name + ":normal", tracks, out);
+    total.add(combined);
+  }
+  if(settings.extractPause) {
+    Statistics combinedBreak = outputTracksStatistics(name + ":break", breaks, out);
+    totalBreak.add(combinedBreak);
+  }
+}
+
+
 void writeGps(const std::string& filename, rapidxml::xml_document<>& doc, const std::vector<Track>& tracks, const std::vector<Track>& breaks,
               const std::vector<Track>& up, const std::vector<Track>& down, const Settings& settings) {
 
@@ -96,7 +136,8 @@ void writeGps(const std::string& filename, rapidxml::xml_document<>& doc, const 
   out.close();
 }
 
-void analyzeFile(const std::string& inFile, const std::string& outFile, const Settings& settings) {
+void analyzeFile(const std::string& inFile, const std::string& name, const std::string& outFile, Statistics& total, Statistics& totalUp,
+                 Statistics& totalDown, Statistics& totalBreak, std::ostream& out, const Settings& settings) {
   rapidxml::xml_document doc;
   readDocument(inFile, doc);
 
@@ -121,31 +162,63 @@ void analyzeFile(const std::string& inFile, const std::string& outFile, const Se
     }
   }
 
+  if(settings.outputStatistics) {
+    outputFileStatistics(name, tracks, breaks, up, down, total, totalUp, totalDown, totalBreak, out, settings);
+  }
+
   writeGps(outFile, doc, tracks, breaks, up, down, settings);
 }
 
 void performAnalysis(const Settings& settings) {
+  Statistics total;
+  Statistics up;
+  Statistics down;
+  Statistics breaks;
+
+  total.init();
+  up.init();
+  down.init();
+  breaks.init();
+
+  std::ostream& out = std::cout;
+  if(settings.outputStatistics) {
+    total.printHeader(out);
+  }
+
   for(int i = 0; i < settings.inputFiles.size(); i += 1) {
     const std::string& input = settings.inputFiles[i];
     std::string output = settings.outputFiles[0];
+
+    std::string name = extractFileName(input);
     if(settings.isDirectory) {
-      // TODO: Improved splitting of file name
-      std::string::size_type pos = input.find_last_of('/');
-      if(pos == std::string::npos) {
-        // local file name
-        pos = 0;
+
+      if(output.size() - 1 != output.find_last_of('/')) {
+        output += "/";
       }
 
-      if(output.size() - 1 == output.find_last_of('/')) {
-        output.pop_back(); // avoid double //
-      }
-
-      output += input.substr(pos);
+      output += name;
     } else {
       output = settings.outputFiles[i];
     }
 
-    analyzeFile(input, output, settings);
+    analyzeFile(input, name, output, total, up, down, breaks, out, settings);
+  }
+
+  if(settings.outputStatistics) {
+    total.finalize();
+    up.finalize();
+    down.finalize();
+    breaks.finalize();
+
+    if(settings.splitUpDown) {
+      up.printRow(out, "total:up");
+      down.printRow(out, "total:down");
+    } else {
+      total.printRow(out, "total");
+    }
+    if(settings.extractPause) {
+      breaks.printRow(out, "total:breaks");
+    }
   }
 }
 
@@ -160,6 +233,7 @@ int main(int nargs, const char* const* args) {
     TCLAP::SwitchArg interploateHeight("i", "intHeight", "Remove wrong height values and interpolate the gap.", cmd);
     TCLAP::SwitchArg splitUpDown("s", "split", "Split tracks into up and down.", cmd);
     TCLAP::SwitchArg extractBreak("e", "extBreak", "Extract breaks from track.", cmd);
+    TCLAP::SwitchArg outputStatistics("", "statistics", "Compute statistics of each track and produce a grand total.", cmd);
 
 
     TCLAP::ValueArg<double> invalidSpeed("", "invalidSpeed", "Maximum allowed speed for the track. Points with higher speed are removed. Unit: km/h", false, 100.0, "invalidSpeed", cmd);
@@ -181,6 +255,7 @@ int main(int nargs, const char* const* args) {
     settings.splitUpDown = splitUpDown.isSet();
     settings.interpolateHeight = interploateHeight.isSet();
     settings.removeInvalid = removeInvalid.isSet();
+    settings.outputStatistics = outputStatistics.isSet();
 
     settings.invalidSpeed_km_h = invalidSpeed.getValue();
     settings.climbMaxSpeed_m_s = climbMaxSpeed.getValue();

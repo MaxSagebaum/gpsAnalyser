@@ -7,4 +7,4 @@ include_directories(libs/rapidxml-1.13)
 include_directories(libs/tclap/include)
 include_directories(include)
 
-add_executable(gpsAnalyser src/main.cpp src/Track.cpp include/Track.h include/util.h include/settings.h)
+add_executable(gpsAnalyser src/main.cpp src/Track.cpp include/Track.h include/util.h include/settings.h include/Statistics.h)
