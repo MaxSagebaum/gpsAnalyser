@@ -11,6 +11,10 @@
 #include <iomanip>
 #include <util.h>
 #include <Track.h>
+#include <settings.h>
+
+#include <tclap/CmdLine.h>
+
 
 void addAllTracks(rapidxml::xml_node<>* base, const std::string& name, const std::vector<Track>& tracks, rapidxml::xml_document<>& doc) {
   rapidxml::xml_node<>* trackRoot = doc.allocate_node(rapidxml::node_element, "trk");
@@ -55,7 +59,7 @@ void readDocument(const std::string& file, rapidxml::xml_document<>& doc) {
 }
 
 void writeGps(const std::string& filename, rapidxml::xml_document<>& doc, const std::vector<Track>& tracks, const std::vector<Track>& breaks,
-              const std::vector<Track>& up, const std::vector<Track>& down) {
+              const std::vector<Track>& up, const std::vector<Track>& down, const Settings& settings) {
 
   rapidxml::xml_node<>* root = doc.first_node();
   rapidxml::xml_document docOut;
@@ -74,10 +78,16 @@ void writeGps(const std::string& filename, rapidxml::xml_document<>& doc, const 
     outRoot->append_node(timeClone);
   }
 
-  addAllTracks(outRoot, "normal", tracks, docOut);
-  addAllTracks(outRoot, "raise", up, docOut);
-  addAllTracks(outRoot, "fall", down, docOut);
-  addAllTracks(outRoot, "break", breaks, docOut);
+  if(settings.splitUpDown) {
+    addAllTracks(outRoot, "raise", up, docOut);
+    addAllTracks(outRoot, "fall", down, docOut);
+  } else {
+    addAllTracks(outRoot, "normal", tracks, docOut);
+  }
+
+  if(settings.extractPause) {
+    addAllTracks(outRoot, "break", breaks, docOut);
+  }
 
   std::ofstream out(filename);
   out.imbue(std::locale("en_US.utf8"));
@@ -86,38 +96,103 @@ void writeGps(const std::string& filename, rapidxml::xml_document<>& doc, const 
   out.close();
 }
 
-void analyzeFile(const std::string& inFile, const std::string& outFile) {
+void analyzeFile(const std::string& inFile, const std::string& outFile, const Settings& settings) {
   rapidxml::xml_document doc;
   readDocument(inFile, doc);
 
   std::vector<Track> tracks;
-  rapidxml::xml_node<>* root;
   readTracks(doc, tracks);
 
   std::vector<Track> breaks;
   std::vector<Track> up;
   std::vector<Track> down;
   for(auto&& track : tracks) {
-    track.removeInvalid(100.0);
-    track.linearizeWrongHeight(15.0, 0.25);
-    track.extractBreaks(30.0, 10.0, breaks);
-
-    track.splitUpDown(100.0, up, down);
+    if(settings.removeInvalid) {
+      track.removeInvalid(settings.invalidSpeed_km_h);
+    }
+    if(settings.interpolateHeight) {
+      track.linearizeWrongHeight(settings.climbMaxSpeed_m_s, settings.climbTrendAdapt);
+    }
+    if(settings.extractPause) {
+      track.extractBreaks(settings.pauseMinTime_s, settings.pauseMaxRange_m, breaks);
+    }
+    if(settings.splitUpDown) {
+      track.splitUpDown(settings.raiseDistance, up, down);
+    }
   }
 
-  writeGps(outFile, doc, tracks, breaks, up, down);
+  writeGps(outFile, doc, tracks, breaks, up, down, settings);
 }
 
-int main() {
+void performAnalysis(const Settings& settings) {
+  for(int i = 0; i < settings.inputFiles.size(); i += 1) {
+    const std::string& input = settings.inputFiles[i];
+    std::string output = settings.outputFiles[0];
+    if(settings.isDirectory) {
+      // TODO: Improved splitting of file name
+      std::string::size_type pos = input.find_last_of('/');
+      if(pos == std::string::npos) {
+        // local file name
+        pos = 0;
+      }
 
-  //std::ifstream in("/home/msagebaum/Documents/Programming/gpsAnalyser/test/BlackSlope.gpx");
-  //std::ifstream in("/home/msagebaum/Documents/Programming/gpsAnalyser/test/ShortError.gpx");
+      if(output.size() - 1 == output.find_last_of('/')) {
+        output.pop_back(); // avoid double //
+      }
 
-  analyzeFile("/home/msagebaum/Documents/Programming/gpsAnalyser/test/20180318085841.gpx", "test.gpx");
-//  analyzeFile("/home/msagebaum/Documents/Programming/gpsAnalyser/test/ShortError.gpx", "test1.gpx");
-//  analyzeFile("/home/msagebaum/Documents/Programming/gpsAnalyser/test/ShortError2.gpx", "test2.gpx");
-//  analyzeFile("/home/msagebaum/Documents/Programming/gpsAnalyser/test/BlackSlope.gpx", "test3.gpx");
+      output += input.substr(pos);
+    } else {
+      output = settings.outputFiles[i];
+    }
 
-  
+    analyzeFile(input, output, settings);
+  }
+}
+
+int main(int nargs, const char* const* args) {
+
+  try {
+    Settings settings;
+
+    TCLAP::CmdLine cmd("gps analyzer", ' ', "beta");
+
+    TCLAP::SwitchArg removeInvalid("r", "remInvalid", "Remove invalid values.", cmd);
+    TCLAP::SwitchArg interploateHeight("i", "intHeight", "Remove wrong height values and interpolate the gap.", cmd);
+    TCLAP::SwitchArg splitUpDown("s", "split", "Split tracks into up and down.", cmd);
+    TCLAP::SwitchArg extractBreak("e", "extBreak", "Extract breaks from track.", cmd);
+
+
+    //TCLAP::ValueArg<double> tolerance("t", "tol", "Tolerance for the comparison of values", false, 1e-12, "tolerance", cmd);
+    //TCLAP::ValueArg<double> ignoreSmallValues("", "iSmall", "Ignore small values in the vectors.", false, 1e-16, "tolerance", cmd);
+    TCLAP::MultiArg<std::string> output("o", "output", "Out file or directory.", true, "file", cmd);
+
+
+    TCLAP::UnlabeledMultiArg<std::string> input("input", "Input files for analysis.", true, "files", cmd);
+
+    cmd.parse(nargs, args);
+
+    settings.inputFiles = input.getValue();
+    settings.outputFiles = output.getValue();
+    settings.extractPause = extractBreak.isSet();
+    settings.splitUpDown = splitUpDown.isSet();
+    settings.interpolateHeight = interploateHeight.isSet();
+    settings.removeInvalid = removeInvalid.isSet();
+
+    settings.isDirectory = false;
+
+    if(settings.inputFiles.size() != 1) {
+      if(settings.outputFiles.size() == 1) {
+        // TODO: check for directory
+        settings.isDirectory = true;
+      } else if(settings.inputFiles.size() != settings.outputFiles.size()) {
+        std::cerr << "Either specify a directory for output or as many output files as input files." << std::endl;
+        return - 1;
+      }
+    }
+
+    performAnalysis(settings);
+  } catch (TCLAP::ArgException &e) {
+    std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl;
+  }
   return 0;
 }
