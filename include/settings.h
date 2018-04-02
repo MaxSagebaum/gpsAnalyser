@@ -28,8 +28,7 @@ struct Settings {
     bool splitUpDown;
     double raiseDistance_m;
 
-
-
+    static int verbose;
 };
 
 #endif //GPSANALYSER_SETTINGS_H

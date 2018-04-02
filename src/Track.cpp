@@ -5,6 +5,7 @@
 #include <util.h>
 #include <iostream>
 #include <cmath>
+#include <settings.h>
 #include "../include/Track.h"
 
 void Track::read(rapidxml::xml_node<>* trackSeg) {
@@ -46,7 +47,7 @@ void Track::removeInvalid(const double maxSpeed_km_h) {
 
     if(!isValidHeight(point)) {
       points.erase(points.begin());
-      std::cerr << "Removing initial point due to height: " << point.height << std::endl;
+      if(Settings::verbose >= 1) {std::cerr << "Removing initial point due to height: " << point.height << std::endl;}
     } else {
       break;
     }
@@ -57,7 +58,7 @@ void Track::removeInvalid(const double maxSpeed_km_h) {
     DataPoint& point = points[pos];
     bool remove = !isValidHeight(point);
     if(remove) {
-      std::cerr << "Removing point due to height: " << point.height << std::endl;
+      if(Settings::verbose >= 1) {std::cerr << "Removing point due to height: " << point.height << std::endl;}
     }
     if(!remove) {
       DataPoint& prev = points[pos - 1];
@@ -67,7 +68,7 @@ void Track::removeInvalid(const double maxSpeed_km_h) {
 
       if(dist > maxSpeed_m_ms * milliseconds) {
         remove = true;
-        std::cerr << "Removing point due to speed limit: " << dist << " " << maxSpeed_m_ms * milliseconds << " " << 3600.0 * dist / milliseconds << std::endl;
+        if(Settings::verbose >= 1) {std::cerr << "Removing point due to speed limit: " << dist << " " << maxSpeed_m_ms * milliseconds << " " << 3600.0 * dist / milliseconds << std::endl;}
       }
     }
 
@@ -78,53 +79,6 @@ void Track::removeInvalid(const double maxSpeed_km_h) {
     }
   }
 }
-//
-//void Track::linearizeWrongHeight(const double maxClimbSpeed_km_h) {
-//  double maxSpeed_m_ms = maxClimbSpeed_km_h / 3600.0;
-//
-//  size_t invalidStart = 0;
-//  double invalidLength = 0.0;
-//
-//  double trend = (points[1].height - points[0].height) / (points[1].time - points[0].time);
-//
-//  for(size_t pos = 1; pos < points.size(); ++pos) {
-//
-//    DataPoint& startPoint = points[invalidStart];
-//    DataPoint& prevPoint = points[pos - 1];
-//    DataPoint& point = points[pos];
-//
-//    // update the length and trend
-//    invalidLength += computePlainDist(point, prevPoint);
-//
-//    // check if we have a invalid section
-//    double diff = point.height - startPoint.height;
-//    double time = point.time - startPoint.time;
-//
-//    std::cerr << "climb speed: " << pos << " " << diff << " " << time << " " << 3600.0 * diff / time << " " << trend << std::endl;
-//    if(std::abs(diff) > maxSpeed_m_ms * time) {
-//      // invalid section continues
-//    } else {
-//      // invalid section is finished
-//      if(1 != pos - invalidStart) { // only handle sections that are not continuous
-//
-//        std::cerr << "Interpolating due to climb speed limit from " << invalidStart << " to " << pos << "." << std::endl;
-//        // make a linear interpolation
-//        double curLength = 0.0;
-//        for(size_t interpolatePos = invalidStart + 1; interpolatePos < pos; ++interpolatePos) {
-//          DataPoint& curPoint = points[interpolatePos];
-//
-//          curLength += computePlainDist(curPoint, points[interpolatePos - 1]);
-//          curPoint.height = startPoint.height + diff * curLength / invalidLength;
-//        }
-//      } else {
-//        // no invalid section update trend
-//        trend = trend * 0.9 + 0.1 * (point.height - prevPoint.height) / (point.time - prevPoint.time);
-//      }
-//      invalidStart = pos;
-//      invalidLength = 0.0;
-//    }
-//  }
-//}
 
 void Track::linearizeWrongHeight(const double maxClimbSpeed_m_s, const double trendAdapt) {
   double maxSpeed_m_ms = maxClimbSpeed_m_s / 1000.0;
@@ -143,15 +97,15 @@ void Track::linearizeWrongHeight(const double maxClimbSpeed_m_s, const double tr
     double trendStart = (point.height - startPoint.height) / (point.time - startPoint.time);
     double trendCur = (point.height - prevPoint.height) / (point.time - prevPoint.time);
 
-    std::cout << "climb speed: " << pos << " " << trend << " " << trendStart << " " << trendCur << " " << maxSpeed_m_ms << std::endl;
+    if(Settings::verbose >= 2) {std::cerr << "pos: " << pos << " trend:" << trend << " trendCur:" << trendCur << " invalid: " << isInvalid << "trendStartInv: " << trendStart << " maxSpeed_m_ms: " << maxSpeed_m_ms << std::endl;}
+
     if(isInvalid) {
-      //std::cout << "climb speed: " << pos << " " << trend << " " << trendStart << std::endl;
       // invalid region try to find a position where the trend continues
 
       if(trend - 0.003 <= trendStart && trendStart <= trend + 0.003) {
         // found a continuing region
 
-        std::cerr << "Interpolating due to climb speed limit from " << invalidStart << " to " << pos << "." << std::endl;
+        if(Settings::verbose >= 1) {std::cerr << "Interpolating due to climb speed limit from " << invalidStart << " to " << pos << "." << std::endl;}
         // make a linear interpolation
         double heightDiff = point.height - startPoint.height;
         double timeDiff = point.time - startPoint.time;
@@ -208,7 +162,7 @@ void Track::extractBreaks(double minSeconds, double maxDistance, std::vector<Tra
       if(breakTime > minSeconds * 1000.0) {
         // break was long enough, extract it
 
-        std::cout << "Extracting break from " << breakStart << " to " << pos << "." << std::endl;
+        if(Settings::verbose >= 1) {std::cerr << "Extracting break from " << breakStart << " to " << pos << "." << std::endl;}
 
         extractTrack(breaks, breakStart, pos);
         points.erase(points.begin() + breakStart + 1, points.begin() + pos); // leave the start of the break in the track
@@ -261,7 +215,7 @@ void Track::splitUpDown(double changeTolerance, std::vector<Track>& up, std::vec
           // we have a change of direction add the old section and update the values
           extractTrack(up, sectionStart, sectionMaxPos + 1);
 
-          std::cout << "Extracting raise from " << sectionStart << " to " << sectionMaxPos << "." << std::endl;
+          if(Settings::verbose >= 1) {std::cerr << "Extracting raise from " << sectionStart << " to " << sectionMaxPos << "." << std::endl;}
 
           sectionStart = sectionMaxPos;
           sectionMinPos = pos;
@@ -275,7 +229,7 @@ void Track::splitUpDown(double changeTolerance, std::vector<Track>& up, std::vec
           // we have a change of direction add the old section and update the values
           extractTrack(down, sectionStart, sectionMinPos + 1);
 
-          std::cout << "Extracting fall from " << sectionStart << " to " << sectionMinPos << "." << std::endl;
+          if(Settings::verbose >= 1) {std::cerr << "Extracting fall from " << sectionStart << " to " << sectionMinPos << "." << std::endl;}
 
           sectionStart = sectionMinPos;
           sectionMaxPos = pos;

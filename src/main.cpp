@@ -170,9 +170,9 @@ int main(int nargs, const char* const* args) {
     TCLAP::ValueArg<double> raiseDistance("", "raiseDistance", "The minimum change in elevation that is considered as a raise or fall change. Unit: meter", false, 100.0, "raiseDistance", cmd);
     TCLAP::MultiArg<std::string> output("o", "output", "Out file or directory.", true, "file", cmd);
 
-
     TCLAP::UnlabeledMultiArg<std::string> input("input", "Input files for analysis.", true, "files", cmd);
 
+    TCLAP::ValueArg<int> verbosity("", "verbose", "Set the verbosity level. 0: No output, 1: Detected errors/regions 2: Detection values.", false, 0, "verbosity", cmd);
     cmd.parse(nargs, args);
 
     settings.inputFiles = input.getValue();
@@ -188,6 +188,8 @@ int main(int nargs, const char* const* args) {
     settings.pauseMinTime_s = pauseMinTime.getValue();
     settings.pauseMaxRange_m = pauseMaxRange.getValue();
     settings.raiseDistance_m = raiseDistance.getValue();
+
+    Settings::verbose = verbosity.getValue();
 
     settings.isDirectory = false;
 
@@ -207,3 +209,5 @@ int main(int nargs, const char* const* args) {
   }
   return 0;
 }
+
+int Settings::verbose;
