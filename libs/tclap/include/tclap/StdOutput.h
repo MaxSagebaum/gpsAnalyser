@@ -36,6 +36,8 @@
 
 namespace TCLAP {
 
+  constexpr int LINE_LENGTH = 120;
+
 /**
  * A class that isolates any output from the CmdLine object so that it
  * may be easily modified.
@@ -181,10 +183,10 @@ StdOutput::_shortUsage( CmdLineInterface& _cmd,
 
 	// if the program name is too long, then adjust the second line offset 
 	int secondLineOffset = static_cast<int>(progName.length()) + 2;
-	if ( secondLineOffset > 75/2 )
-		secondLineOffset = static_cast<int>(75/2);
+	if ( secondLineOffset > LINE_LENGTH/2 )
+		secondLineOffset = static_cast<int>(LINE_LENGTH/2);
 
-	spacePrint( os, s, 75, 3, secondLineOffset );
+	spacePrint( os, s, LINE_LENGTH, 3, secondLineOffset );
 }
 
 inline void 
@@ -203,11 +205,11 @@ StdOutput::_longUsage( CmdLineInterface& _cmd,
 				  it != xorList[i].end(); 
 				  it++ )
 				{
-					spacePrint( os, (*it)->longID(), 75, 3, 3 );
-					spacePrint( os, (*it)->getDescription(), 75, 5, 0 );
+					spacePrint( os, (*it)->longID(), LINE_LENGTH, 3, 3 );
+					spacePrint( os, (*it)->getDescription(), LINE_LENGTH, 5, 0 );
 
 					if ( it+1 != xorList[i].end() )
-						spacePrint(os, "-- OR --", 75, 9, 0);
+						spacePrint(os, "-- OR --", LINE_LENGTH, 9, 0);
 				}
 			os << std::endl << std::endl;
 		}
@@ -216,14 +218,14 @@ StdOutput::_longUsage( CmdLineInterface& _cmd,
 	for (ArgListIterator it = argList.begin(); it != argList.end(); it++)
 		if ( !xorHandler.contains( (*it) ) )
 			{
-				spacePrint( os, (*it)->longID(), 75, 3, 3 ); 
-				spacePrint( os, (*it)->getDescription(), 75, 5, 0 ); 
+				spacePrint( os, (*it)->longID(), LINE_LENGTH, 3, 3 );
+				spacePrint( os, (*it)->getDescription(), LINE_LENGTH, 5, 0 );
 				os << std::endl;
 			}
 
 	os << std::endl;
 
-	spacePrint( os, message, 75, 3, 0 );
+	spacePrint( os, message, LINE_LENGTH, 3, 0 );
 }
 
 inline void StdOutput::spacePrint( std::ostream& os, 
