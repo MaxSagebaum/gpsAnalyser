@@ -64,7 +64,7 @@ Statistics outputTracksStatistics(const std::string& name, const std::vector<Tra
   total.init();
 
   for(size_t pos = 0; pos < tracks.size(); pos += 1) {
-    Statistics cur = tracks[pos].computeStatistics();
+    Statistics cur = tracks[pos].computeStatistics(settings.splitUpDown);
 
     if(settings.outputStatistics >= 3) {
       cur.printRow(out, name + ":" + formatInt((int) pos, 0));
@@ -72,7 +72,7 @@ Statistics outputTracksStatistics(const std::string& name, const std::vector<Tra
     total.add(cur);
   }
 
-  total.finalize();
+  total.finalize(false);
   if(tracks.size() > 1) {
     if(settings.outputStatistics >= 2) {
       total.printRow(out, name + ":total");
@@ -209,10 +209,10 @@ void performAnalysis(const Settings& settings) {
   }
 
   if(settings.outputStatistics >= 1) {
-    total.finalize();
-    up.finalize();
-    down.finalize();
-    breaks.finalize();
+    total.finalize(false);
+    up.finalize(false);
+    down.finalize(false);
+    breaks.finalize(false);
 
     if(settings.splitUpDown) {
       up.printRow(out, "total:up");

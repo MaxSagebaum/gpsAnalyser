@@ -56,14 +56,27 @@ struct Statistics {
       maxSpeed = std::max(maxSpeed, speed);
 
       // computed in finalize: averageSpeed
+
+      tracks = 1;
     }
 
-    void finalize() {
+    void finalize(bool combineHeight) {
       if(0 != totalTime) {
         double totalTime_s = (double) totalTime / 1000.0;
         averageSpeed = totalDistance / totalTime_s;
       } else {
         averageSpeed = 0.0;
+      }
+
+      if(combineHeight) {
+        double height = totalRaiseHeight - totalFallHeight;
+        totalRaiseHeight = 0.0;
+        totalFallHeight = 0.0;
+        if(height >= 0) {
+          totalRaiseHeight = height;
+        } else {
+          totalFallHeight = -height;
+        }
       }
     }
 

@@ -251,7 +251,7 @@ void Track::splitUpDown(double changeTolerance, std::vector<Track>& up, std::vec
   }
 }
 
-Statistics Track::computeStatistics() const {
+Statistics Track::computeStatistics(bool combineHeight) const {
   Statistics s;
   s.init();
 
@@ -265,7 +265,7 @@ Statistics Track::computeStatistics() const {
     s.update(time, distancePlain, height);
   }
 
-  s.finalize();
+  s.finalize(combineHeight);
 
   return s;
 }

@@ -48,7 +48,7 @@ public:
 
     void linearizeWrongHeight(const double maxClimbSpeed_m_s, const double trendAdapt);
 
-    Statistics computeStatistics() const;
+    Statistics computeStatistics(bool combineHeight) const;
 };
 
 
