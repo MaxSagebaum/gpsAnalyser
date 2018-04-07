@@ -15,7 +15,63 @@
 
 #include <tclap/CmdLine.h>
 #include <Statistics.h>
+#include <sys/stat.h>
+#include <cstring>
 
+
+/** from https://stackoverflow.com/questions/675039/how-can-i-create-directory-tree-in-c-linux */
+static int do_mkdir(const char *path, mode_t mode)
+{
+  struct stat            st;
+  int             status = 0;
+
+  if (stat(path, &st) != 0)
+  {
+    /* Directory does not exist. EEXIST for race condition */
+    if (mkdir(path, mode) != 0 && errno != EEXIST)
+      status = -1;
+  }
+  else if (!S_ISDIR(st.st_mode))
+  {
+    errno = ENOTDIR;
+    status = -1;
+  }
+
+  return(status);
+}
+
+/**
+** mkpath - ensure all directories in path exist
+** Algorithm takes the pessimistic view and works top-down to ensure
+** each directory in path exists, rather than optimistically creating
+** the last element and working backwards.
+*/
+int mkpath(const char *path, mode_t mode)
+{
+  char           *pp;
+  char           *sp;
+  int             status;
+  char           *copypath = strdup(path);
+
+  status = 0;
+  pp = copypath;
+  while (status == 0 && (sp = strchr(pp, '/')) != 0)
+  {
+    if (sp != pp)
+    {
+      /* Neither root nor double slash in path */
+      *sp = '\0';
+      status = do_mkdir(copypath, mode);
+      *sp = '/';
+    }
+    pp = sp + 1;
+  }
+  if (status == 0) {
+    status = do_mkdir(path, mode);
+  }
+  free(copypath);
+  return (status);
+}
 
 void addAllTracks(rapidxml::xml_node<>* base, const std::string& name, const std::vector<Track>& tracks, rapidxml::xml_document<>& doc) {
   rapidxml::xml_node<>* trackRoot = doc.allocate_node(rapidxml::node_element, "trk");
@@ -191,19 +247,15 @@ void performAnalysis(const Settings& settings) {
 
   for(int i = 0; i < settings.inputFiles.size(); i += 1) {
     const std::string& input = settings.inputFiles[i];
-    std::string output = settings.outputFiles[0];
+    std::string output = settings.outputDir;
 
     std::string name = extractFileName(input);
-    if(settings.isDirectory) {
 
-      if(output.size() - 1 != output.find_last_of('/')) {
-        output += "/";
-      }
-
-      output += name;
-    } else {
-      output = settings.outputFiles[i];
+    if(output.size() - 1 != output.find_last_of('/')) {
+      output += "/";
     }
+
+    output += name;
 
     analyzeFile(input, name, output, total, up, down, breaks, out, settings);
   }
@@ -246,7 +298,7 @@ int main(int nargs, const char* const* args) {
     TCLAP::ValueArg<double> pauseMinTime("", "pauseMinTime", "Minimum time for a pause. Unit: seconds", false, 30.0, "pauseMinTime", cmd);
     TCLAP::ValueArg<double> pauseMaxRange("", "pauseMaxRange", "Maximum range for the movement in a pause. Unit: meter", false, 10.0, "pauseMaxRange", cmd);
     TCLAP::ValueArg<double> raiseDistance("", "raiseDistance", "The minimum change in elevation that is considered as a raise or fall change. Unit: meter", false, 100.0, "raiseDistance", cmd);
-    TCLAP::MultiArg<std::string> output("o", "output", "Out file or directory.", true, "file", cmd);
+    TCLAP::ValueArg<std::string> output("o", "output", "Output directory.", true, "out", "dir", cmd);
 
     TCLAP::UnlabeledMultiArg<std::string> input("input", "Input files for analysis.", true, "files", cmd);
 
@@ -254,7 +306,7 @@ int main(int nargs, const char* const* args) {
     cmd.parse(nargs, args);
 
     settings.inputFiles = input.getValue();
-    settings.outputFiles = output.getValue();
+    settings.outputDir = output.getValue();
     settings.extractPause = extractBreak.isSet();
     settings.splitUpDown = splitUpDown.isSet();
     settings.interpolateHeight = interploateHeight.isSet();
@@ -270,16 +322,10 @@ int main(int nargs, const char* const* args) {
 
     Settings::verbose = verbosity.getValue();
 
-    settings.isDirectory = false;
-
-    if(settings.inputFiles.size() != 1) {
-      if(settings.outputFiles.size() == 1) {
-        // TODO: check for directory
-        settings.isDirectory = true;
-      } else if(settings.inputFiles.size() != settings.outputFiles.size()) {
-        std::cerr << "Either specify a directory for output or as many output files as input files." << std::endl;
-        return - 1;
-      }
+    // create all directories
+    if(0 != mkpath(settings.outputDir.c_str(), 0777)) {
+      std::cerr << "Could not create directory: " << settings.outputDir << std::endl;
+      return -1;
     }
 
     performAnalysis(settings);

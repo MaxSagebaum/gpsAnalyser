@@ -10,9 +10,7 @@
 
 struct Settings {
     std::vector<std::string> inputFiles;
-    std::vector<std::string> outputFiles;
-
-    bool isDirectory;
+    std::string outputDir;
 
     bool removeInvalid;
     double invalidSpeed_km_h;
