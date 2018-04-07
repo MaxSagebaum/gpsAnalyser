@@ -45,10 +45,21 @@ void Track::removeInvalid(const double maxSpeed_km_h) {
   // make a sanity check if the first node is valid
   while(points.size() > 0) {
     DataPoint& point = points[0];
+    DataPoint& next = points[1];
 
+    bool remove = false;
     if(!isValidHeight(point)) {
-      points.erase(points.begin());
+      remove = true;
       if(Settings::verbose >= 1) {std::cerr << "Removing initial point due to height: " << point.height << std::endl;}
+    } else if(std::abs(next.height - point.height) > 10.0) {
+      remove = true;
+      if(Settings::verbose >= 1) {std::cerr << "Removing initial point due to large height jump: " << next.height - point.height << std::endl;}
+    } else if(std::abs(next.time - point.time) > 10000) {
+      remove = true;
+      if(Settings::verbose >= 1) {std::cerr << "Removing initial point due to large time: " << next.time - point.time << std::endl;}
+    }
+    if(remove) {
+      points.erase(points.begin());
     } else {
       break;
     }
@@ -116,7 +127,12 @@ void Track::linearizeWrongHeight(const double maxClimbSpeed_m_s, const double tr
           curPoint.height = startPoint.height + heightDiff * (curPoint.time - startPoint.time) / timeDiff;
         }
         isInvalid = false;
+      } else if(pos - invalidStart > 100) {
+        if(Settings::verbose >= 1) {std::cerr << "Could not determine end of invalid region " << invalidStart << " to " << pos << "." << std::endl;}
+        isInvalid = false;
       }
+
+
     } else {
       if(std::abs(trendCur) > maxSpeed_m_ms) {
         isInvalid = true;

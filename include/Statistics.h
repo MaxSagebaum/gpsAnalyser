@@ -56,8 +56,6 @@ struct Statistics {
       maxSpeed = std::max(maxSpeed, speed);
 
       // computed in finalize: averageSpeed
-
-      tracks = 1;
     }
 
     void finalize(bool combineHeight) {
