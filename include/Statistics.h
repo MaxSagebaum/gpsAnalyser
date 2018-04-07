@@ -92,7 +92,7 @@ struct Statistics {
 
     void printHeader(std::ostream& out) {
       out << "name; total time(hh::mm::ss); total distance(km); total raise height(km); "
-             "total fall height(km); total raise distance(km) total fall distance(km); average speed(km/h); max speed(km/h);\n";
+             "total fall height(km); total raise distance(km); total fall distance(km); average speed(km/h); max speed(km/h);\n";
     }
 
     void printRow(std::ostream& out, const std::string& name) {

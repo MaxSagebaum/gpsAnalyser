@@ -242,7 +242,7 @@ int main(int nargs, const char* const* args) {
 
     TCLAP::ValueArg<double> invalidSpeed("", "invalidSpeed", "Maximum allowed speed for the track. Points with higher speed are removed. Unit: km/h", false, 100.0, "invalidSpeed", cmd);
     TCLAP::ValueArg<double> climbMaxSpeed("", "climbMaxSpeed", "Maximum allowed speed for the climbing or falling. Points with higher speed are interpolated according to the trend prior to the detected section. Unit: m/s", false, 15.0, "climbMaxSpeed", cmd);
-    TCLAP::ValueArg<double> climbTrendAdapt("", "climbTrendAdept", "Adaption of the general trend detection. Range 0.0 to 1.0", false, 0.25, "climbTrendAdapt", cmd);
+    TCLAP::ValueArg<double> climbTrendAdapt("", "climbTrendAdept", "Adaption of the general trend detection. Range 0.0 to 1.0", false, 0.1, "climbTrendAdapt", cmd);
     TCLAP::ValueArg<double> pauseMinTime("", "pauseMinTime", "Minimum time for a pause. Unit: seconds", false, 30.0, "pauseMinTime", cmd);
     TCLAP::ValueArg<double> pauseMaxRange("", "pauseMaxRange", "Maximum range for the movement in a pause. Unit: meter", false, 10.0, "pauseMaxRange", cmd);
     TCLAP::ValueArg<double> raiseDistance("", "raiseDistance", "The minimum change in elevation that is considered as a raise or fall change. Unit: meter", false, 100.0, "raiseDistance", cmd);
